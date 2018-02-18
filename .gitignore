@@ -10,6 +10,7 @@
 .classpath
 *.launch
 .settings/
+tmp
 
 
 #System Files
