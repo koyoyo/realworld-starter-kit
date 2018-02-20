@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/spf13/viper"
 
+	"github.com/koyoyo/realworld-starter-kit/handlers"
 	"github.com/koyoyo/realworld-starter-kit/models"
 )
 
@@ -34,4 +37,15 @@ func main() {
 	db.AutoMigrate(&models.User{})
 
 	fmt.Println("Hello World!!")
+
+	app := handlers.App{
+		DB: models.DB{
+			db,
+		},
+	}
+
+	r := mux.NewRouter()
+	r.HandleFunc("/api/users", app.RegisterHandler)
+	http.Handle("/", r)
+	http.ListenAndServe(viper.GetString("GO_PORT"), nil)
 }
