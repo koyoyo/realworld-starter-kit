@@ -20,15 +20,15 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Validate Form
 
-	user := RegisterUser{}
-	err := json.NewDecoder(r.Body).Decode(&user)
+	body := RegisterUser{}
+	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		// TODO: Return Http400
 		panic("XXX")
 	}
 
-	newUser := app.DB.CreateUser(user.User.Username, user.User.Email, user.User.Password)
-	newUser.X.NewToken()
+	newUser := app.DB.CreateUser(body.User.Username, body.User.Email, body.User.Password)
+	newUser.User.NewToken()
 
 	resp, err := json.Marshal(&newUser)
 	if err != nil {

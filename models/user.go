@@ -21,7 +21,7 @@ type User struct {
 }
 
 type UserResponse struct {
-	X User `json:"user"`
+	User User `json:"user"`
 }
 
 func (db *DB) CreateUser(username, email, password string) *UserResponse {
@@ -34,7 +34,7 @@ func (db *DB) CreateUser(username, email, password string) *UserResponse {
 	db.Create(&user)
 
 	return &UserResponse{
-		X: user,
+		User: user,
 	}
 }
 
