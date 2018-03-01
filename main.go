@@ -46,6 +46,7 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/api/users", app.RegisterHandler)
+	r.HandleFunc("/api/users/login", app.LoginHandler)
 	http.Handle("/", r)
 	http.ListenAndServe(viper.GetString("GO_PORT"), nil)
 }

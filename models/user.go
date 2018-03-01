@@ -47,6 +47,14 @@ func encryptPassword(password string) string {
 	return string(hash)
 }
 
+func (db *DB) GetUser(email string) *UserResponse {
+	user := User{}
+	db.Where(&User{Email: email}).First(&user)
+	return &UserResponse{
+		User: user,
+	}
+}
+
 func GenerateToken() string {
 	mySigningKey := []byte(viper.GetString("JWT_SIGNED_KEY"))
 	claims := &jwt.StandardClaims{
@@ -64,4 +72,11 @@ func GenerateToken() string {
 
 func (user *User) NewToken() {
 	user.Token = GenerateToken()
+}
+
+func (user *User) CheckPassword(password string) bool {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		return false
+	}
+	return true
 }
