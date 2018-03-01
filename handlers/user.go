@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
@@ -23,8 +22,9 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	body := RegisterUser{}
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		// TODO: Return Http400
-		panic("XXX")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
 	}
 
 	newUser := app.DB.CreateUser(body.User.Username, body.User.Email, body.User.Password)
@@ -32,7 +32,9 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := json.Marshal(&newUser)
 	if err != nil {
-		panic(fmt.Errorf("Can not Marshall: %s", err))
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
 	}
 
 	w.Write(resp)
