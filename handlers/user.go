@@ -3,6 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 type RegisterUser struct {
@@ -61,7 +63,7 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := app.DB.GetUser(body.User.Email)
+	user := app.DB.GetUserFromEmail(body.User.Email)
 	if user.User.ID == 0 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		w.Write(JsonErrorResponse("email", "is invalid"))
@@ -75,6 +77,30 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user.User.NewToken()
+	resp, err := json.Marshal(&user)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	w.Write(resp)
+}
+
+func (app *App) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	userToken := r.Context().Value("user")
+	username := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["Username"]
+	if username == nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", "Can't extract user token."))
+		return
+	}
+
+	user := app.DB.GetUserFromUsername(username.(string))
+	user.User.Token = userToken.(*jwt.Token).Raw
 	resp, err := json.Marshal(&user)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)

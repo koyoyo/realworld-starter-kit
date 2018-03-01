@@ -9,6 +9,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/spf13/viper"
+	"github.com/urfave/negroni"
 
 	"github.com/koyoyo/realworld-starter-kit/handlers"
 	"github.com/koyoyo/realworld-starter-kit/models"
@@ -45,6 +46,10 @@ func main() {
 	}
 
 	r := mux.NewRouter()
+	r.Handle("/api/user", negroni.New(
+		negroni.HandlerFunc(JwtMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.GetUserHandler),
+	)).Methods("GET")
 	r.HandleFunc("/api/users", app.RegisterHandler)
 	r.HandleFunc("/api/users/login", app.LoginHandler)
 	http.Handle("/", r)

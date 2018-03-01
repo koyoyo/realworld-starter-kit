@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -22,6 +23,11 @@ type User struct {
 
 type UserResponse struct {
 	User User `json:"user"`
+}
+
+type MyCustomClaims struct {
+	jwt.StandardClaims
+	Username string
 }
 
 func (db *DB) CreateUser(username, email, password string) *UserResponse {
@@ -47,7 +53,7 @@ func encryptPassword(password string) string {
 	return string(hash)
 }
 
-func (db *DB) GetUser(email string) *UserResponse {
+func (db *DB) GetUserFromEmail(email string) *UserResponse {
 	user := User{}
 	db.Where(&User{Email: email}).First(&user)
 	return &UserResponse{
@@ -55,11 +61,22 @@ func (db *DB) GetUser(email string) *UserResponse {
 	}
 }
 
-func GenerateToken() string {
+func (db *DB) GetUserFromUsername(username string) *UserResponse {
+	user := User{}
+	db.Where(&User{Username: username}).First(&user)
+	return &UserResponse{
+		User: user,
+	}
+}
+
+func GenerateToken(username string) string {
 	mySigningKey := []byte(viper.GetString("JWT_SIGNED_KEY"))
-	claims := &jwt.StandardClaims{
-		ExpiresAt: 15000,
-		Issuer:    "KoYoYo",
+	claims := MyCustomClaims{
+		jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+			Issuer:    "KoYoYo",
+		},
+		username,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -71,7 +88,7 @@ func GenerateToken() string {
 }
 
 func (user *User) NewToken() {
-	user.Token = GenerateToken()
+	user.Token = GenerateToken(user.Username)
 }
 
 func (user *User) CheckPassword(password string) bool {
