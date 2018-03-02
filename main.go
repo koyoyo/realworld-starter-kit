@@ -50,6 +50,10 @@ func main() {
 		negroni.HandlerFunc(JwtMiddleware.HandlerWithNext),
 		negroni.WrapFunc(app.GetUserHandler),
 	)).Methods("GET")
+	r.Handle("/api/user", negroni.New(
+		negroni.HandlerFunc(JwtMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.UpdateUserHandler),
+	)).Methods("PUT")
 	r.HandleFunc("/api/users", app.RegisterHandler)
 	r.HandleFunc("/api/users/login", app.LoginHandler)
 	http.Handle("/", r)

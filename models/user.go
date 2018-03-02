@@ -44,6 +44,23 @@ func (db *DB) CreateUser(username, email, password string) *UserResponse {
 	}
 }
 
+func (db *DB) UpdateUser(user *User, username, email, password, bio string, image *string) *UserResponse {
+	if password != "" {
+		password = encryptPassword(password)
+	}
+	updatedUser := User{
+		Username: username,
+		Email:    email,
+		Password: password,
+		Bio:      bio,
+		Image:    image,
+	}
+	db.Model(&user).Updates(&updatedUser)
+	return &UserResponse{
+		User: updatedUser,
+	}
+}
+
 func encryptPassword(password string) string {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {

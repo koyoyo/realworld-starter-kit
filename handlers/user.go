@@ -22,6 +22,16 @@ type LoginUser struct {
 	} `json: user`
 }
 
+type UpdateUser struct {
+	User struct {
+		Username string  `json: username`
+		Email    string  `json: email`
+		Password string  `json: password`
+		Bio      string  `json: bio`
+		Image    *string `json: image`
+	} `json: user`
+}
+
 func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.ParseForm()
@@ -102,6 +112,40 @@ func (app *App) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	user := app.DB.GetUserFromUsername(username.(string))
 	user.User.Token = userToken.(*jwt.Token).Raw
 	resp, err := json.Marshal(&user)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	w.Write(resp)
+}
+
+func (app *App) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	body := UpdateUser{}
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	userToken := r.Context().Value("user")
+	username := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["Username"]
+	if username == nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", "Can't extract user token."))
+		return
+	}
+
+	user := app.DB.GetUserFromUsername(username.(string))
+	updatedUser := app.DB.UpdateUser(&user.User, body.User.Username, body.User.Email, body.User.Password, body.User.Bio,
+		body.User.Image)
+	updatedUser.User.Token = userToken.(*jwt.Token).Raw
+
+	resp, err := json.Marshal(&updatedUser)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		w.Write(JsonErrorResponse("_", err.Error()))
