@@ -10,6 +10,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/spf13/viper"
 	"github.com/urfave/negroni"
+	validator "gopkg.in/go-playground/validator.v9"
 
 	"github.com/koyoyo/realworld-starter-kit/handlers"
 	"github.com/koyoyo/realworld-starter-kit/models"
@@ -43,6 +44,7 @@ func main() {
 		DB: models.DB{
 			db,
 		},
+		Validator: validator.New(),
 	}
 
 	r := mux.NewRouter()

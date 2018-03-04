@@ -3,6 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"gopkg.in/go-playground/validator.v9"
 )
 
 type errorResponse struct {
@@ -16,6 +19,23 @@ func JsonErrorResponse(field, error string) []byte {
 				error,
 			},
 		},
+	}
+
+	respMarshalled, err := json.Marshal(&resp)
+	if err != nil {
+		panic(fmt.Errorf("Can not Marshall: %s", err))
+	}
+	return respMarshalled
+}
+
+func JsonErrorResponseFromValidator(err error) []byte {
+	var errorMsgs = make(map[string][]string)
+	for _, err := range err.(validator.ValidationErrors) {
+		errorMsgs[strings.ToLower(err.StructField())] = []string{err.Tag()}
+	}
+
+	resp := &errorResponse{
+		Errors: errorMsgs,
 	}
 
 	respMarshalled, err := json.Marshal(&resp)

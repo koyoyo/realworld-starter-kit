@@ -9,40 +9,45 @@ import (
 
 type RegisterUser struct {
 	User struct {
-		Username string `json: username`
-		Email    string `json: email`
-		Password string `json: password`
-	} `json: user`
+		Username string `json:"username" validate:"required"`
+		Email    string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required"`
+	} `json:"user"`
 }
 
 type LoginUser struct {
 	User struct {
-		Email    string `json: email`
-		Password string `json: password`
-	} `json: user`
+		Email    string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required"`
+	} `json:"user"`
 }
 
 type UpdateUser struct {
 	User struct {
-		Username string  `json: username`
-		Email    string  `json: email`
-		Password string  `json: password`
-		Bio      string  `json: bio`
-		Image    *string `json: image`
-	} `json: user`
+		Username string  `json:"username"`
+		Email    string  `json:"email" validate:"email"`
+		Password string  `json:"password"`
+		Bio      string  `json:"bio"`
+		Image    *string `json:"image" validate:"url"`
+	} `json:"user"`
 }
 
 func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.ParseForm()
 
-	// TODO: Validate Form
-
 	body := RegisterUser{}
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	err = app.Validator.Struct(body)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponseFromValidator(err))
 		return
 	}
 
@@ -63,13 +68,18 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	r.ParseForm()
 
-	// TODO: Validate Form
-
 	body := LoginUser{}
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	err = app.Validator.Struct(body)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponseFromValidator(err))
 		return
 	}
 
@@ -129,6 +139,13 @@ func (app *App) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	err = app.Validator.Struct(body)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponseFromValidator(err))
 		return
 	}
 
