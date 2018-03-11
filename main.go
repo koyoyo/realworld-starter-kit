@@ -37,6 +37,7 @@ func main() {
 
 	// Initial Schema
 	db.AutoMigrate(&models.User{})
+	db.AutoMigrate(&models.Follower{})
 
 	fmt.Println("Hello World!!")
 
@@ -49,15 +50,28 @@ func main() {
 
 	r := mux.NewRouter()
 	r.Handle("/api/user", negroni.New(
-		negroni.HandlerFunc(JwtMiddleware.HandlerWithNext),
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
 		negroni.WrapFunc(app.GetUserHandler),
 	)).Methods("GET")
 	r.Handle("/api/user", negroni.New(
-		negroni.HandlerFunc(JwtMiddleware.HandlerWithNext),
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
 		negroni.WrapFunc(app.UpdateUserHandler),
 	)).Methods("PUT")
 	r.HandleFunc("/api/users", app.RegisterHandler)
 	r.HandleFunc("/api/users/login", app.LoginHandler)
+
+	r.Handle("/api/profiles/{username}", negroni.New(
+		negroni.HandlerFunc(JwtOptionalMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.GetUserProfileHandler),
+	))
+	r.Handle("/api/profiles/{username}/follow", negroni.New(
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.FollowHandler),
+	)).Methods("POST")
+	r.Handle("/api/profiles/{username}/follow", negroni.New(
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.UnfollowHandler),
+	)).Methods("DELETE")
 	http.Handle("/", r)
 	http.ListenAndServe(viper.GetString("GO_PORT"), nil)
 }

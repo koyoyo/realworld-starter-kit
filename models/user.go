@@ -28,6 +28,7 @@ type UserResponse struct {
 type MyCustomClaims struct {
 	jwt.StandardClaims
 	Username string
+	UserID   uint
 }
 
 func (db *DB) CreateUser(username, email, password string) *UserResponse {
@@ -86,7 +87,7 @@ func (db *DB) GetUserFromUsername(username string) *UserResponse {
 	}
 }
 
-func GenerateToken(username string) string {
+func GenerateToken(username string, userID uint) string {
 	mySigningKey := []byte(viper.GetString("JWT_SIGNED_KEY"))
 	claims := MyCustomClaims{
 		jwt.StandardClaims{
@@ -94,6 +95,7 @@ func GenerateToken(username string) string {
 			Issuer:    "KoYoYo",
 		},
 		username,
+		userID,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -105,7 +107,7 @@ func GenerateToken(username string) string {
 }
 
 func (user *User) NewToken() {
-	user.Token = GenerateToken(user.Username)
+	user.Token = GenerateToken(user.Username, user.ID)
 }
 
 func (user *User) CheckPassword(password string) bool {

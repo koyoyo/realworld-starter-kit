@@ -24,10 +24,19 @@ func customFromAuthHeader(r *http.Request) (string, error) {
 	return authHeaderParts[1], nil
 }
 
-var JwtMiddleware = jwtmiddleware.New(jwtmiddleware.Options{
+var JwtRequiredMiddleware = jwtmiddleware.New(jwtmiddleware.Options{
 	ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 		return []byte(viper.GetString("JWT_SIGNED_KEY")), nil
 	},
 	SigningMethod: jwt.SigningMethodHS256,
 	Extractor:     customFromAuthHeader,
+})
+
+var JwtOptionalMiddleware = jwtmiddleware.New(jwtmiddleware.Options{
+	ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+		return []byte(viper.GetString("JWT_SIGNED_KEY")), nil
+	},
+	SigningMethod:       jwt.SigningMethodHS256,
+	Extractor:           customFromAuthHeader,
+	CredentialsOptional: true,
 })
