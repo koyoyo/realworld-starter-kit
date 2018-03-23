@@ -56,7 +56,7 @@ func (app *App) ArticleCreateHandler(w http.ResponseWriter, r *http.Request) {
 func (app *App) ArticleListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	articles := app.DB.ListArticle()
+	articles := app.DB.ListArticle(r.URL.Query())
 
 	resp, err := json.Marshal(&articles)
 	if err != nil {

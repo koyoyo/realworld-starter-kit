@@ -1,6 +1,9 @@
 package models
 
 import (
+	"fmt"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/gosimple/slug"
@@ -96,11 +99,49 @@ func (db *DB) CreateArticle(title, description, body string, tagList []string, u
 	return db.PrepareArticleResponse(article)
 }
 
-func (db *DB) ListArticle() *ArticlesResponseJson {
+func (db *DB) ListArticle(queries url.Values) *ArticlesResponseJson {
 	var articles []Article
 
-	db.Preload("Tag").Order("ID desc").Find(&articles)
-	return db.PrepareArticlesResponse(articles)
+	sql := db.Preload("Tag").Preload("Author").Order("ID desc")
+
+	var tag string
+	if tagQuery, ok := queries["tag"]; ok {
+		tag = tagQuery[0]
+
+		sql = sql.Joins("JOIN article_tags ON article_tags.article_id=articles.id").
+			Joins("JOIN tags ON article_tags.tag_id=tags.id").
+			Where("tags.name = ?", tag)
+	}
+
+	var author string
+	if authorQuery, ok := queries["author"]; ok {
+		author = authorQuery[0]
+
+		sql = sql.Joins("JOIN users ON users.id=articles.author_id").
+			Where("users.username = ?", author)
+	}
+	if favorited, ok := queries["favorited"]; ok {
+		fmt.Println("Has favorited", favorited)
+	}
+
+	limit := 20
+	if limitStr, ok := queries["limit"]; ok {
+		if limitTmp, err := strconv.Atoi(limitStr[0]); err == nil {
+			limit = limitTmp
+		}
+	}
+	var offset int
+	if offsetStr, ok := queries["offset"]; ok {
+		if offsetTmp, err := strconv.Atoi(offsetStr[0]); err == nil {
+			offset = offsetTmp
+		}
+	}
+
+	var count uint
+	sql.Model(&Article{}).Count(&count)
+	sql.Offset(offset).Limit(limit).Find(&articles)
+
+	return db.PrepareArticlesResponse(articles, count)
 }
 
 func (db *DB) CountArticle() uint {
@@ -121,7 +162,7 @@ func (db *DB) PrepareArticleResponse(article Article) *ArticleResponseJson {
 	}
 }
 
-func (db *DB) PrepareArticlesResponse(articles []Article) *ArticlesResponseJson {
+func (db *DB) PrepareArticlesResponse(articles []Article, count uint) *ArticlesResponseJson {
 	var articlesResponse []*ArticleResponse
 	for _, article := range articles {
 		articlesResponse = append(articlesResponse, db.PrepareArticle(article))
@@ -129,7 +170,7 @@ func (db *DB) PrepareArticlesResponse(articles []Article) *ArticlesResponseJson 
 
 	return &ArticlesResponseJson{
 		Articles:      articlesResponse,
-		ArticlesCount: db.CountArticle(),
+		ArticlesCount: count,
 	}
 }
 
