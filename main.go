@@ -38,6 +38,9 @@ func main() {
 	// Initial Schema
 	db.AutoMigrate(&models.User{})
 	db.AutoMigrate(&models.Follower{})
+	db.AutoMigrate(&models.Article{})
+	db.AutoMigrate(&models.ArticleFavorite{})
+	db.AutoMigrate(&models.Tag{})
 
 	fmt.Println("Hello World!!")
 
@@ -72,6 +75,18 @@ func main() {
 		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
 		negroni.WrapFunc(app.UnfollowHandler),
 	)).Methods("DELETE")
+
+	r.Handle("/api/articles", negroni.New(
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleCreateHandler),
+	)).Methods("POST")
+	r.Handle("/api/articles", negroni.New(
+		negroni.HandlerFunc(JwtOptionalMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleListHandler),
+	)).Methods("GET")
+	r.HandleFunc("/api/articles/{slug}", app.ArticleDetailHandler)
+	r.HandleFunc("/api/tags", app.TagsHandler)
+
 	http.Handle("/", r)
 	http.ListenAndServe(viper.GetString("GO_PORT"), nil)
 }

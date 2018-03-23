@@ -12,6 +12,19 @@ type errorResponse struct {
 	Errors map[string][]string `json:"errors"`
 }
 
+func JsonErrorNotFoundResponse() []byte {
+	resp := map[string]string{
+		"status": "404",
+		"error":  "Not Found",
+	}
+
+	respMarshalled, err := json.Marshal(&resp)
+	if err != nil {
+		panic(fmt.Errorf("Can not Marshall: %s", err))
+	}
+	return respMarshalled
+}
+
 func JsonErrorResponse(field, error string) []byte {
 	resp := &errorResponse{
 		Errors: map[string][]string{
