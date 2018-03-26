@@ -6,6 +6,7 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
+	"github.com/koyoyo/realworld-starter-kit/models"
 )
 
 type ArticleForm struct {
@@ -56,7 +57,17 @@ func (app *App) ArticleCreateHandler(w http.ResponseWriter, r *http.Request) {
 func (app *App) ArticleListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	articles := app.DB.ListArticle(r.URL.Query())
+	var articles *models.ArticlesResponseJson
+
+	if userToken := r.Context().Value("user"); userToken != nil {
+		if loggedInUserID := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["UserID"]; loggedInUserID != nil {
+			articles = app.DB.ListArticleWithUser(r.URL.Query(), uint(loggedInUserID.(float64)))
+		} else {
+			articles = app.DB.ListArticle(r.URL.Query())
+		}
+	} else {
+		articles = app.DB.ListArticle(r.URL.Query())
+	}
 
 	resp, err := json.Marshal(&articles)
 	if err != nil {
@@ -78,6 +89,15 @@ func (app *App) ArticleDetailHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write(JsonErrorNotFoundResponse())
 		return
+	}
+
+	userToken := r.Context().Value("user")
+	if userToken != nil {
+		loggedInUserID := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["UserID"]
+		if loggedInUserID != nil {
+			article.Article.Favorited = app.DB.IsFavorite(article.Article.ID, uint(loggedInUserID.(float64)))
+			article.Article.Author.Following = app.DB.IsFollowing(article.Article.Author.ID, uint(loggedInUserID.(float64)))
+		}
 	}
 
 	resp, err := json.Marshal(&article)

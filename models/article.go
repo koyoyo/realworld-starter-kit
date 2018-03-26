@@ -27,6 +27,7 @@ type Article struct {
 }
 
 type Author struct {
+	ID        uint    `json:"-"`
 	Username  string  `json:"username"`
 	Bio       string  `json:"bio"`
 	Image     *string `json:"image"`
@@ -49,7 +50,7 @@ type Tag struct {
 }
 
 type ArticleResponse struct {
-	ID             uint
+	ID             uint     `json:"-"`
 	CreatedAt      string   `json:"createdAt"`
 	UpdatedAt      string   `json:"updatedAt"`
 	Slug           string   `json:"slug"`
@@ -100,9 +101,7 @@ func (db *DB) CreateArticle(title, description, body string, tagList []string, u
 	return db.PrepareArticleResponse(article)
 }
 
-func (db *DB) ListArticle(queries url.Values) *ArticlesResponseJson {
-	var articles []Article
-
+func (db *DB) listArticle(queries url.Values) (articles []Article, count uint) {
 	sql := db.Preload("Tag").Preload("Author").Order("ID desc")
 
 	var tag string
@@ -138,11 +137,19 @@ func (db *DB) ListArticle(queries url.Values) *ArticlesResponseJson {
 		}
 	}
 
-	var count uint
 	sql.Model(&Article{}).Count(&count)
 	sql.Offset(offset).Limit(limit).Find(&articles)
+	return
+}
 
+func (db *DB) ListArticle(queries url.Values) *ArticlesResponseJson {
+	articles, count := db.listArticle(queries)
 	return db.PrepareArticlesResponse(articles, count)
+}
+
+func (db *DB) ListArticleWithUser(queries url.Values, userID uint) *ArticlesResponseJson {
+	articles, count := db.listArticle(queries)
+	return db.PrepareArticlesResponseWithUser(articles, count, userID)
 }
 
 func (db *DB) CountArticle() uint {
@@ -153,7 +160,7 @@ func (db *DB) CountArticle() uint {
 
 func (db *DB) GetArticleFromSlug(slug string) *ArticleResponseJson {
 	var article Article
-	db.Preload("Tag").Where(Article{Slug: slug}).First(&article)
+	db.Preload("Tag").Preload("Author").Where(Article{Slug: slug}).First(&article)
 	return db.PrepareArticleResponse(article)
 }
 
@@ -175,6 +182,22 @@ func (db *DB) PrepareArticlesResponse(articles []Article, count uint) *ArticlesR
 	}
 }
 
+func (db *DB) PrepareArticlesResponseWithUser(articles []Article, count uint, userID uint) *ArticlesResponseJson {
+	var articlesResponse []*ArticleResponse
+	for _, article := range articles {
+		article := db.PrepareArticle(article)
+		article.Favorited = db.IsFavorite(article.ID, userID)
+		article.Author.Following = db.IsFollowing(article.Author.ID, userID)
+
+		articlesResponse = append(articlesResponse, article)
+	}
+
+	return &ArticlesResponseJson{
+		Articles:      articlesResponse,
+		ArticlesCount: count,
+	}
+}
+
 func (db *DB) PrepareArticle(article Article) *ArticleResponse {
 	tags := []string{}
 	for _, tag := range article.Tag {
@@ -183,8 +206,8 @@ func (db *DB) PrepareArticle(article Article) *ArticleResponse {
 
 	return &ArticleResponse{
 		ID:          article.ID,
-		CreatedAt:   article.CreatedAt.UTC().Format("2006-01-02T15:04:05.999Z"),
-		UpdatedAt:   article.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999Z"),
+		CreatedAt:   article.CreatedAt.UTC().Format("2006-01-02T15:04:05.000Z"),
+		UpdatedAt:   article.UpdatedAt.UTC().Format("2006-01-02T15:04:05.000Z"),
 		Slug:        article.Slug,
 		Title:       article.Title,
 		Description: article.Description,
@@ -193,6 +216,7 @@ func (db *DB) PrepareArticle(article Article) *ArticleResponse {
 		// Favorited: article.Favorited,
 		FavoritesCount: article.FavoritesCount,
 		Author: &Author{
+			ID:        article.Author.ID,
 			Username:  article.Author.Username,
 			Bio:       article.Author.Bio,
 			Image:     article.Author.Image,
@@ -207,6 +231,12 @@ func (db *DB) ListTags() *TagResponse {
 	return &TagResponse{
 		Tags: tags,
 	}
+}
+
+func (db *DB) IsFavorite(articleID, userID uint) bool {
+	var count uint
+	db.Model(&ArticleFavorite{}).Where(&ArticleFavorite{UserID: userID, ArticleID: articleID}).Count(&count)
+	return count > 0
 }
 
 func (db *DB) FavoriteArticle(articleID, userID uint) (isAlreadyFav bool) {

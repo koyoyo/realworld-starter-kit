@@ -84,7 +84,10 @@ func main() {
 		negroni.HandlerFunc(JwtOptionalMiddleware.HandlerWithNext),
 		negroni.WrapFunc(app.ArticleListHandler),
 	)).Methods("GET")
-	r.HandleFunc("/api/articles/{slug}", app.ArticleDetailHandler)
+	r.Handle("/api/articles/{slug}", negroni.New(
+		negroni.HandlerFunc(JwtOptionalMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleDetailHandler),
+	)).Methods("GET")
 	r.Handle("/api/articles/{slug}/favorite", negroni.New(
 		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
 		negroni.WrapFunc(app.ArticleFavoriteHandler),
