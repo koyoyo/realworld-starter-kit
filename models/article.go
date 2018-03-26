@@ -21,7 +21,7 @@ type Article struct {
 	Body           string `json:"body"`
 	Tag            []Tag  `gorm:"many2many:article_tags;" json:"tagList"`
 	Favorited      bool   `gorm:"-" json:"favorited"`
-	FavoritesCount uint   `gorm:"-" json:"favoritesCount"`
+	FavoritesCount uint   `json:"favoritesCount"`
 	Author         User   `json:"author"`
 	AuthorID       uint
 }
@@ -49,6 +49,7 @@ type Tag struct {
 }
 
 type ArticleResponse struct {
+	ID             uint
 	CreatedAt      string   `json:"createdAt"`
 	UpdatedAt      string   `json:"updatedAt"`
 	Slug           string   `json:"slug"`
@@ -181,6 +182,7 @@ func (db *DB) PrepareArticle(article Article) *ArticleResponse {
 	}
 
 	return &ArticleResponse{
+		ID:          article.ID,
 		CreatedAt:   article.CreatedAt.UTC().Format("2006-01-02T15:04:05.999Z"),
 		UpdatedAt:   article.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999Z"),
 		Slug:        article.Slug,
@@ -189,7 +191,7 @@ func (db *DB) PrepareArticle(article Article) *ArticleResponse {
 		Body:        article.Body,
 		Tag:         tags,
 		// Favorited: article.Favorited,
-		// FavoritesCount: article.FavoritesCount,
+		FavoritesCount: article.FavoritesCount,
 		Author: &Author{
 			Username:  article.Author.Username,
 			Bio:       article.Author.Bio,
@@ -205,4 +207,29 @@ func (db *DB) ListTags() *TagResponse {
 	return &TagResponse{
 		Tags: tags,
 	}
+}
+
+func (db *DB) FavoriteArticle(articleID, userID uint) (isAlreadyFav bool) {
+	var articleFav ArticleFavorite
+	if results := db.FirstOrCreate(&articleFav, ArticleFavorite{UserID: userID, ArticleID: articleID}); results.RowsAffected == 0 {
+		isAlreadyFav = true
+		return
+	}
+
+	var countFavorite uint
+	db.Model(&ArticleFavorite{}).Where(&ArticleFavorite{ArticleID: articleID}).Count(&countFavorite)
+	db.Model(&Article{}).Where(&Article{ID: articleID}).Update("FavoritesCount", countFavorite)
+	return
+}
+
+func (db *DB) UnfavoriteArticle(articleID, userID uint) (isAlreadyUnfav bool) {
+	if results := db.Delete(&ArticleFavorite{}, ArticleFavorite{UserID: userID, ArticleID: articleID}); results.RowsAffected == 0 {
+		isAlreadyUnfav = true
+		return
+	}
+
+	var countFavorite uint
+	db.Model(&ArticleFavorite{}).Where(&ArticleFavorite{ArticleID: articleID}).Count(&countFavorite)
+	db.Model(&Article{}).Where(&Article{ID: articleID}).Update("FavoritesCount", countFavorite)
+	return
 }

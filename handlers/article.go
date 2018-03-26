@@ -91,6 +91,76 @@ func (app *App) ArticleDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (app *App) ArticleFavoriteHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+	article := app.DB.GetArticleFromSlug(slug)
+
+	userToken := r.Context().Value("user")
+	if userToken == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	loggedInUserID := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["UserID"]
+	if loggedInUserID == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	isAlreadyFav := app.DB.FavoriteArticle(article.Article.ID, uint(loggedInUserID.(float64)))
+	if !isAlreadyFav {
+		article.Article.FavoritesCount++
+	}
+
+	article.Article.Favorited = true
+	resp, err := json.Marshal(&article)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	w.Write(resp)
+}
+
+func (app *App) ArticleUnfavoriteHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+	article := app.DB.GetArticleFromSlug(slug)
+
+	userToken := r.Context().Value("user")
+	if userToken == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	loggedInUserID := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["UserID"]
+	if loggedInUserID == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	isAlreadyUnfav := app.DB.UnfavoriteArticle(article.Article.ID, uint(loggedInUserID.(float64)))
+	if !isAlreadyUnfav {
+		article.Article.FavoritesCount--
+	}
+
+	article.Article.Favorited = false
+	resp, err := json.Marshal(&article)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	w.Write(resp)
+}
+
 func (app *App) TagsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 

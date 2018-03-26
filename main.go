@@ -85,6 +85,14 @@ func main() {
 		negroni.WrapFunc(app.ArticleListHandler),
 	)).Methods("GET")
 	r.HandleFunc("/api/articles/{slug}", app.ArticleDetailHandler)
+	r.Handle("/api/articles/{slug}/favorite", negroni.New(
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleFavoriteHandler),
+	)).Methods("POST")
+	r.Handle("/api/articles/{slug}/favorite", negroni.New(
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleUnfavoriteHandler),
+	)).Methods("DELETE")
 	r.HandleFunc("/api/tags", app.TagsHandler)
 
 	http.Handle("/", r)
