@@ -111,7 +111,7 @@ func (app *App) ArticleDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	slug := vars["slug"]
-	article := app.DB.GetArticleFromSlug(slug)
+	article := app.DB.GetArticleResponseFromSlug(slug)
 	if article.Article.Slug == "" {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write(JsonErrorNotFoundResponse())
@@ -138,12 +138,95 @@ func (app *App) ArticleDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (app *App) ArticleFavoriteHandler(w http.ResponseWriter, r *http.Request) {
+func (app *App) ArticleUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	r.ParseForm()
+
+	body := ArticleForm{}
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+	article := app.DB.GetArticleFromSlug(slug)
+	if article.Slug == "" {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(JsonErrorNotFoundResponse())
+		return
+	}
+
+	userToken := r.Context().Value("user")
+	if userToken == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	loggedInUserID := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["UserID"]
+	if loggedInUserID == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if article.AuthorID != uint(loggedInUserID.(float64)) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	articleResponse := app.DB.UpdateArticle(article, body.Article.Title, body.Article.Description, body.Article.Body)
+	resp, err := json.Marshal(&articleResponse)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	w.Write(resp)
+}
+
+func (app *App) ArticleDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	slug := vars["slug"]
 	article := app.DB.GetArticleFromSlug(slug)
+	if article.Slug == "" {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(JsonErrorNotFoundResponse())
+		return
+	}
+
+	userToken := r.Context().Value("user")
+	if userToken == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	loggedInUserID := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["UserID"]
+	if loggedInUserID == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if article.AuthorID != uint(loggedInUserID.(float64)) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	app.DB.DeleteArticle(article)
+	w.WriteHeader(http.StatusNoContent)
+	return
+}
+
+func (app *App) ArticleFavoriteHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+	article := app.DB.GetArticleResponseFromSlug(slug)
 
 	userToken := r.Context().Value("user")
 	if userToken == nil {
@@ -178,7 +261,7 @@ func (app *App) ArticleUnfavoriteHandler(w http.ResponseWriter, r *http.Request)
 
 	vars := mux.Vars(r)
 	slug := vars["slug"]
-	article := app.DB.GetArticleFromSlug(slug)
+	article := app.DB.GetArticleResponseFromSlug(slug)
 
 	userToken := r.Context().Value("user")
 	if userToken == nil {

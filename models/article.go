@@ -97,10 +97,32 @@ func (db *DB) CreateArticle(title, description, body string, tagList []string, u
 	var author User
 	db.First(&author, userID)
 	article.Author = author
+	return db.PrepareArticleResponse(&article)
+}
+
+func (db *DB) UpdateArticle(article *Article, title, description, body string) *ArticleResponseJson {
+	if title != "" {
+		article.Title = title
+		article.Slug = slug.Make(title)
+	}
+
+	if description != "" {
+		article.Description = description
+	}
+
+	if body != "" {
+		article.Body = body
+	}
+	db.Save(&article)
+
 	return db.PrepareArticleResponse(article)
 }
 
-func (db *DB) listArticle(queries url.Values) (articles []Article, count uint) {
+func (db *DB) DeleteArticle(article *Article) {
+	db.Delete(&article)
+}
+
+func (db *DB) listArticle(queries url.Values) (articles []*Article, count uint) {
 	sql := db.Preload("Tag").Preload("Author").Order("ID desc")
 
 	if tagQuery, ok := queries["tag"]; ok {
@@ -178,7 +200,7 @@ func (db *DB) ListArticleFeed(queries url.Values, userID uint) *ArticlesResponse
 	}
 
 	var count uint
-	var articles []Article
+	var articles []*Article
 	sql.Model(&Article{}).Count(&count)
 	sql.Offset(offset).Limit(limit).Find(&articles)
 	return db.PrepareArticlesResponseWithUser(articles, count, userID)
@@ -190,19 +212,25 @@ func (db *DB) CountArticle() uint {
 	return count
 }
 
-func (db *DB) GetArticleFromSlug(slug string) *ArticleResponseJson {
+func (db *DB) GetArticleFromSlug(slug string) *Article {
 	var article Article
 	db.Preload("Tag").Preload("Author").Where(Article{Slug: slug}).First(&article)
-	return db.PrepareArticleResponse(article)
+	return &article
 }
 
-func (db *DB) PrepareArticleResponse(article Article) *ArticleResponseJson {
+func (db *DB) GetArticleResponseFromSlug(slug string) *ArticleResponseJson {
+	var article Article
+	db.Preload("Tag").Preload("Author").Where(Article{Slug: slug}).First(&article)
+	return db.PrepareArticleResponse(&article)
+}
+
+func (db *DB) PrepareArticleResponse(article *Article) *ArticleResponseJson {
 	return &ArticleResponseJson{
 		Article: db.PrepareArticle(article),
 	}
 }
 
-func (db *DB) PrepareArticlesResponse(articles []Article, count uint) *ArticlesResponseJson {
+func (db *DB) PrepareArticlesResponse(articles []*Article, count uint) *ArticlesResponseJson {
 	var articlesResponse []*ArticleResponse
 	for _, article := range articles {
 		articlesResponse = append(articlesResponse, db.PrepareArticle(article))
@@ -214,7 +242,7 @@ func (db *DB) PrepareArticlesResponse(articles []Article, count uint) *ArticlesR
 	}
 }
 
-func (db *DB) PrepareArticlesResponseWithUser(articles []Article, count uint, userID uint) *ArticlesResponseJson {
+func (db *DB) PrepareArticlesResponseWithUser(articles []*Article, count uint, userID uint) *ArticlesResponseJson {
 	var articlesResponse []*ArticleResponse
 	for _, article := range articles {
 		article := db.PrepareArticle(article)
@@ -230,7 +258,7 @@ func (db *DB) PrepareArticlesResponseWithUser(articles []Article, count uint, us
 	}
 }
 
-func (db *DB) PrepareArticle(article Article) *ArticleResponse {
+func (db *DB) PrepareArticle(article *Article) *ArticleResponse {
 	tags := []string{}
 	for _, tag := range article.Tag {
 		tags = append(tags, tag.Name)
