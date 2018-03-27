@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -104,24 +103,31 @@ func (db *DB) CreateArticle(title, description, body string, tagList []string, u
 func (db *DB) listArticle(queries url.Values) (articles []Article, count uint) {
 	sql := db.Preload("Tag").Preload("Author").Order("ID desc")
 
-	var tag string
 	if tagQuery, ok := queries["tag"]; ok {
-		tag = tagQuery[0]
+		tag := tagQuery[0]
 
 		sql = sql.Joins("JOIN article_tags ON article_tags.article_id=articles.id").
 			Joins("JOIN tags ON article_tags.tag_id=tags.id").
 			Where("tags.name = ?", tag)
 	}
 
-	var author string
 	if authorQuery, ok := queries["author"]; ok {
-		author = authorQuery[0]
+		author := authorQuery[0]
 
 		sql = sql.Joins("JOIN users ON users.id=articles.author_id").
 			Where("users.username = ?", author)
 	}
-	if favorited, ok := queries["favorited"]; ok {
-		fmt.Println("Has favorited", favorited)
+
+	if favoritedQuery, ok := queries["favorited"]; ok {
+		favorited := favoritedQuery[0]
+
+		var user User
+		db.Select("id").Where(&User{Username: favorited}).First(&user)
+
+		if user.ID != 0 {
+			sql = sql.Joins("JOIN article_favorites ON article_favorites.article_id=articles.id").
+				Where("article_favorites.user_id = ?", user.ID)
+		}
 	}
 
 	limit := 20
