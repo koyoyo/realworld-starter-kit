@@ -40,6 +40,7 @@ func main() {
 	db.AutoMigrate(&models.Follower{})
 	db.AutoMigrate(&models.Article{})
 	db.AutoMigrate(&models.ArticleFavorite{})
+	db.AutoMigrate(&models.ArticleComment{})
 	db.AutoMigrate(&models.Tag{})
 
 	fmt.Println("Hello World!!")
@@ -107,6 +108,18 @@ func main() {
 	r.Handle("/api/articles/{slug}/favorite", negroni.New(
 		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
 		negroni.WrapFunc(app.ArticleUnfavoriteHandler),
+	)).Methods("DELETE")
+	r.Handle("/api/articles/{slug}/comments", negroni.New(
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleCommentAddHandler),
+	)).Methods("POST")
+	r.Handle("/api/articles/{slug}/comments", negroni.New(
+		negroni.HandlerFunc(JwtOptionalMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleCommentListHandler),
+	)).Methods("GET")
+	r.Handle("/api/articles/{slug}/comments/{commentID:[0-9]+}", negroni.New(
+		negroni.HandlerFunc(JwtRequiredMiddleware.HandlerWithNext),
+		negroni.WrapFunc(app.ArticleCommentDeleteHandler),
 	)).Methods("DELETE")
 	r.HandleFunc("/api/tags", app.TagsHandler)
 

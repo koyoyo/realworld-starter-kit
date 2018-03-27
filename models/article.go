@@ -43,6 +43,18 @@ type ArticleFavorite struct {
 	Article   Article
 }
 
+type ArticleComment struct {
+	ID        uint `gorm:"primary_key"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	AuthorID  uint
+	Author    User
+	ArticleID uint
+	Article   Article
+	Body      string `json:"body"`
+}
+
 type Tag struct {
 	ID   uint   `json:"-" gorm:"primary_key"`
 	Name string `json:"name"`
@@ -69,6 +81,22 @@ type ArticleResponseJson struct {
 type ArticlesResponseJson struct {
 	Articles      []*ArticleResponse `json:"articles"`
 	ArticlesCount uint               `json:"articlesCount"`
+}
+
+type CommentResponse struct {
+	ID        uint    `json:"id"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
+	Body      string  `json:"body"`
+	Author    *Author `json:"author"`
+}
+
+type CommentResponseJson struct {
+	Comment *CommentResponse `json:"comment"`
+}
+
+type CommentsResponseJson struct {
+	Comments []*CommentResponse `json:"comments"`
 }
 
 type TagResponse struct {
@@ -322,4 +350,93 @@ func (db *DB) UnfavoriteArticle(articleID, userID uint) (isAlreadyUnfav bool) {
 	db.Model(&ArticleFavorite{}).Where(&ArticleFavorite{ArticleID: articleID}).Count(&countFavorite)
 	db.Model(&Article{}).Where(&Article{ID: articleID}).Update("FavoritesCount", countFavorite)
 	return
+}
+
+func (db *DB) AddArticleComment(article *Article, userID uint, body string) *CommentResponseJson {
+	comment := &ArticleComment{
+		AuthorID:  userID,
+		ArticleID: article.ID,
+		Body:      body,
+	}
+	db.Create(&comment)
+
+	var author User
+	db.First(&author, userID)
+	comment.Author = author
+	return db.PrepareCommentResponse(comment)
+}
+
+func (db *DB) listArticleComment(articleID uint) (comments []*ArticleComment) {
+	db.Where(&ArticleComment{ArticleID: articleID}).Order("ID desc").Find(&comments)
+	return
+}
+
+func (db *DB) ListArticleComment(articleID uint) *CommentsResponseJson {
+	comments := db.listArticleComment(articleID)
+	return db.PrepareCommentsResponse(comments)
+}
+
+func (db *DB) ListArticleCommentWithUser(articleID uint, userID uint) *CommentsResponseJson {
+	comments := db.listArticleComment(articleID)
+	return db.PrepareCommentsResponseWithUser(comments, userID)
+}
+
+func (db *DB) GetArticleComment(commentID uint, articleSlug string) *ArticleComment {
+	var comment ArticleComment
+	db.Debug().Model(&ArticleComment{}).Where(&ArticleComment{ID: commentID}).
+		Joins("JOIN articles ON articles.ID=article_comments.article_id").
+		Where("articles.slug = ?", articleSlug).
+		First(&comment)
+	return &comment
+}
+
+func (db *DB) DeleteArticleComment(comment *ArticleComment) {
+	db.Delete(&comment)
+}
+
+func (db *DB) PrepareCommentResponse(comment *ArticleComment) *CommentResponseJson {
+	return &CommentResponseJson{
+		Comment: db.PrepareComment(comment),
+	}
+}
+
+func (db *DB) PrepareCommentsResponse(comments []*ArticleComment) *CommentsResponseJson {
+	var commentsResponse []*CommentResponse
+	for _, comment := range comments {
+		commentsResponse = append(commentsResponse, db.PrepareComment(comment))
+	}
+
+	return &CommentsResponseJson{
+		Comments: commentsResponse,
+	}
+}
+
+func (db *DB) PrepareCommentsResponseWithUser(comments []*ArticleComment, userID uint) *CommentsResponseJson {
+	var commentsResponse []*CommentResponse
+	for _, comment := range comments {
+		comment := db.PrepareComment(comment)
+		comment.Author.Following = db.IsFollowing(comment.Author.ID, userID)
+
+		commentsResponse = append(commentsResponse, comment)
+	}
+
+	return &CommentsResponseJson{
+		Comments: commentsResponse,
+	}
+}
+
+func (db *DB) PrepareComment(comment *ArticleComment) *CommentResponse {
+	return &CommentResponse{
+		ID:        comment.ID,
+		CreatedAt: comment.CreatedAt.UTC().Format("2006-01-02T15:04:05.000Z"),
+		UpdatedAt: comment.UpdatedAt.UTC().Format("2006-01-02T15:04:05.000Z"),
+		Body:      comment.Body,
+		Author: &Author{
+			ID:        comment.Author.ID,
+			Username:  comment.Author.Username,
+			Bio:       comment.Author.Bio,
+			Image:     comment.Author.Image,
+			Following: false,
+		},
+	}
 }
