@@ -152,6 +152,32 @@ func (db *DB) ListArticleWithUser(queries url.Values, userID uint) *ArticlesResp
 	return db.PrepareArticlesResponseWithUser(articles, count, userID)
 }
 
+func (db *DB) ListArticleFeed(queries url.Values, userID uint) *ArticlesResponseJson {
+	var ids []uint
+	db.Find(&Follower{FollowingID: userID}).Pluck("follower_id", &ids)
+
+	sql := db.Where("author_id in (?)", ids).Preload("Tag").Preload("Author").Order("ID desc")
+
+	limit := 20
+	if limitStr, ok := queries["limit"]; ok {
+		if limitTmp, err := strconv.Atoi(limitStr[0]); err == nil {
+			limit = limitTmp
+		}
+	}
+	var offset int
+	if offsetStr, ok := queries["offset"]; ok {
+		if offsetTmp, err := strconv.Atoi(offsetStr[0]); err == nil {
+			offset = offsetTmp
+		}
+	}
+
+	var count uint
+	var articles []Article
+	sql.Model(&Article{}).Count(&count)
+	sql.Offset(offset).Limit(limit).Find(&articles)
+	return db.PrepareArticlesResponseWithUser(articles, count, userID)
+}
+
 func (db *DB) CountArticle() uint {
 	var count uint
 	db.Model(&Article{}).Count(&count)

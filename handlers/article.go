@@ -79,6 +79,33 @@ func (app *App) ArticleListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+func (app *App) ArticleFeedHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	userToken := r.Context().Value("user")
+	if userToken == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	loggedInUserID := userToken.(*jwt.Token).Claims.(jwt.MapClaims)["UserID"]
+	if loggedInUserID == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	articles := app.DB.ListArticleFeed(r.URL.Query(), uint(loggedInUserID.(float64)))
+
+	resp, err := json.Marshal(&articles)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.Write(JsonErrorResponse("_", err.Error()))
+		return
+	}
+
+	w.Write(resp)
+}
+
 func (app *App) ArticleDetailHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 

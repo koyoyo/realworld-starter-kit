@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -51,6 +50,5 @@ func (db *DB) Follow(followerID, followingID uint) {
 }
 
 func (db *DB) Unfollow(followerID, followingID uint) {
-	fmt.Println("Unfol", followerID, followingID)
 	db.Where(&Follower{FollowerID: followerID, FollowingID: followingID}).Delete(Follower{})
 }
